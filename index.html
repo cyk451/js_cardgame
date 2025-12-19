@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Card Crawler JS</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: #fff; display: flex; flex-direction: column; align-items: center; }
+        #game-container { width: 800px; background: #333; padding: 20px; border-radius: 10px; margin-top: 20px; }
+        
+        .zone { border: 1px solid #555; padding: 10px; margin: 10px 0; border-radius: 5px; min-height: 100px; }
+        .flex { display: flex; gap: 10px; flex-wrap: wrap; }
+        
+        .card { 
+            width: 120px; height: 160px; background: #444; border: 2px solid #666; 
+            border-radius: 8px; padding: 10px; cursor: pointer; transition: transform 0.2s;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .card:hover { transform: translateY(-10px); border-color: #00ffcc; }
+        .card.attack { border-left: 5px solid #ff4444; }
+        .card.skill { border-left: 5px solid #44aaff; }
+        
+        .monster { background: #522; padding: 10px; border-radius: 5px; text-align: center; min-width: 120px; }
+        .stat-bar { font-size: 1.2em; font-weight: bold; color: #00ffcc; margin: 10px 0; }
+        
+        button.end-turn { background: #ff8800; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; border-radius: 5px; }
+        .hidden { display: none; }
+        #log { font-size: 0.9em; color: #aaa; height: 60px; overflow-y: auto; border-top: 1px solid #555; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>Card Crawler</h1>
+
+    <div id="setup-screen">
+        <h2>Build Your Deck (Select 15 cards)</h2>
+        <p>Selected: <span id="count">0</span>/15</p>
+        <div id="library-zone" class="flex"></div>
+        <button id="start-btn" class="end-turn" style="margin-top:20px; display:none;" onclick="startGame()">Start Game</button>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <div id="monster-zone" class="flex"></div>
+        
+        <div class="stat-bar">
+            PLAYER HP: <span id="player-hp">0</span> | AP: <span id="player-ap">0</span>/3
+        </div>
+
+        <div id="hand-zone" class="flex zone"></div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div id="pile-counts">Deck: 0 | Tomb: 0</div>
+            <button class="end-turn" onclick="handleEndTurn()">END TURN</button>
+        </div>
+
+        <div id="log">Welcome to the dungeon...</div>
+    </div>
+
+<script>
+// --- 1. Data Configuration ---
+const CARD_LIBRARY = [
+    { id: 0, name: "Slash", type: "attack", cost: 1, damage: 6, desc: "6 DMG" },
+    { id: 1, name: "Big Smash", type: "attack", cost: 2, damage: 14, desc: "14 DMG" },
+    { id: 2, name: "Cleave", type: "attack", cost: 2, damage: 5, area: true, desc: "5 AOE DMG" },
+    { id: 3, name: "Focus", type: "skill", cost: 0, effect: "gainAP", value: 1, desc: "+1 AP" },
+    { id: 4, name: "Meditate", type: "skill", cost: 1, effect: "draw", value: 2, desc: "Draw 2" }
+];
+
+const MONSTERS = [
+    { name: "Slime", hp: 30, maxHp: 30, atk: 6, counter: 3, maxCounter: 3 },
+    { name: "Bat", hp: 15, maxHp: 15, atk: 4, counter: 2, maxCounter: 2 }
+];
+
+// --- 2. Game State ---
+let selectedDeck = [];
+let game = null;
+
+// --- 3. Deck Building Logic ---
+function initSetup() {
+    const libZone = document.getElementById('library-zone');
+    CARD_LIBRARY.forEach(card => {
+        const div = document.createElement('div');
+        div.className = `card ${card.type}`;
+        div.innerHTML = `<b>${card.name}</b><small>${card.desc}</small><span>Cost: ${card.cost}</span>`;
+        div.onclick = () => {
+            if (selectedDeck.length < 15) {
+                selectedDeck.push(card.id);
+                document.getElementById('count').innerText = selectedDeck.length;
+                if (selectedDeck.length === 15) document.getElementById('start-btn').style.display = 'block';
+            }
+        };
+        libZone.appendChild(div);
+    });
+}
+
+// --- 4. Core Game Engine ---
+class CardGame {
+    constructor(deckIds) {
+        this.player = { hp: 50, ap: 3, maxAp: 3 };
+        this.deck = deckIds.map(id => ({ ...CARD_LIBRARY.find(c => c.id === id) }));
+        this.hand = [];
+        this.tomb = [];
+        this.enemies = MONSTERS.map(m => ({ ...m }));
+        this.shuffle(this.deck);
+        this.startTurn();
+    }
+
+    shuffle(arr) { arr.sort(() => Math.random() - 0.5); }
+
+    log(msg) {
+        const l = document.getElementById('log');
+        l.innerHTML = msg + "<br>" + l.innerHTML;
+    }
+
+    draw(count) {
+        for (let i = 0; i < count; i++) {
+            if (this.deck.length === 0) {
+                if (this.tomb.length === 0) return;
+                this.deck = [...this.tomb];
+                this.tomb = [];
+                this.shuffle(this.deck);
+                this.log("Deck reshuffled.");
+            }
+            this.hand.push(this.deck.pop());
+        }
+    }
+
+    playCard(index) {
+        const card = this.hand[index];
+        if (this.player.ap < card.cost) return;
+
+        this.player.ap -= card.cost;
+        if (card.type === 'attack') {
+            if (card.area) {
+                this.enemies.forEach(e => e.hp -= card.damage);
+            } else if (this.enemies[0]) {
+                this.enemies[0].hp -= card.damage;
+            }
+        } else {
+            if (card.effect === 'gainAP') this.player.ap += card.value;
+            if (card.effect === 'draw') this.draw(card.value);
+        }
+
+        this.log(`Played ${card.name}`);
+        this.tomb.push(this.hand.splice(index, 1)[0]);
+        this.processMoves();
+        this.render();
+    }
+
+    processMoves() {
+        this.enemies.forEach(e => {
+            e.counter--;
+            if (e.counter <= 0) this.enemyAct(e);
+        });
+        this.checkState();
+    }
+
+    enemyAct(e) {
+        this.log(`${e.name} attacks for ${e.atk}!`);
+        this.player.hp -= e.atk;
+        e.counter = e.maxCounter;
+    }
+
+    startTurn() {
+        this.player.ap = this.player.maxAp;
+        this.draw(5);
+        this.render();
+    }
+
+    checkState() {
+        this.enemies = this.enemies.filter(e => e.hp > 0);
+        if (this.enemies.length === 0) alert("Victory!");
+        if (this.player.hp <= 0) alert("Game Over!");
+    }
+	// --- 5. UI Rendering ---
+	render() {
+		// Stats
+		document.getElementById('player-hp').innerText = this.player.hp;
+		document.getElementById('player-ap').innerText = this.player.ap;
+		document.getElementById('pile-counts').innerText = `Deck: ${this.deck.length} | Tomb: ${this.tomb.length}`;
+
+		// Enemies
+		const mZone = document.getElementById('monster-zone');
+		mZone.innerHTML = "";
+		this.enemies.forEach(e => {
+			const div = document.createElement('div');
+			div.className = 'monster';
+			div.innerHTML = `<b>${e.name}</b><br>HP: ${e.hp}<br>Next Act: ${e.counter}`;
+			mZone.appendChild(div);
+		});
+
+		// Hand
+		const hZone = document.getElementById('hand-zone');
+		hZone.innerHTML = "";
+		this.hand.forEach((card, i) => {
+			const div = document.createElement('div');
+			div.className = `card ${card.type}`;
+			div.innerHTML = `<b>${card.name}</b><small>${card.desc}</small><span>Cost: ${card.cost}</span>`;
+			div.onclick = () => this.playCard(i);
+			hZone.appendChild(div);
+		});
+	}
+}
+
+
+function startGame() {
+    document.getElementById('setup-screen').classList.add('hidden');
+    document.getElementById('game-container').classList.remove('hidden');
+    game = new CardGame(selectedDeck);
+}
+
+function handleEndTurn() {
+    // Monsters that didn't act yet act now
+    game.enemies.forEach(e => {
+        if (e.counter > 0) game.enemyAct(e);
+    });
+    game.tomb.push(...game.hand);
+    game.hand = [];
+    game.startTurn();
+}
+
+initSetup();
+</script>
+</body>
+</html>
