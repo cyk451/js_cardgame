@@ -46,9 +46,9 @@ const CARD_LIBRARY = [
 	}
 ];
 
-const MONSTERS = [
-    { name: "Slime", hp: 30, maxHp: 30, atk: 6, counter: 3, maxCounter: 3 },
-    { name: "Bat", hp: 15, maxHp: 15, atk: 4, counter: 2, maxCounter: 2 }
+const ENEMIES = [
+    { name: "Slime", type: 'minor', hp: 30, maxHp: 30, atk: 6, counter: 3, maxCounter: 3 },
+    { name: "Bat", type: 'minor', hp: 15, maxHp: 15, atk: 4, counter: 2, maxCounter: 2 }
 ];
 
 // --- 2. Game State ---
@@ -57,9 +57,88 @@ let game = null;
 // let deck = [];
 let MAX_SIZE = document.getElementById('max_cards').innerHTML;
 
-class Monster {
-    constructor() {
+class HPbar {
+    constructor(maxHp) {
+		this.view = null;
+		this.maxHp = maxHp;
+        this.view = document.createElement("div");
+        this.view.classList.add("hp-container");
+        const hpbar = document.createElement("div");
+        hpbar.classList.add("hp-bar");
+        this.fill = document.createElement("div");
+        this.fill.classList.add("hp-fill");
+		this.text = document.createElement("div");
+        this.text.classList.add("hp-text");
+		this.text.innerText = `${maxHp}/${maxHp}`;
+		hpbar.replaceChildren(this.fill);
+		this.view.append(hpbar, this.text);
+	}
+    createElement() {
+		return this.view;
+	}
+	update(current) {
+		current = Math.max(0, Math.min(this.maxHp, current));
+		if (this.view === null) return ;
+		// const text = this.view.querySelector(".hp-text");
+
+		const ratio = Math.max(0, current * 100/ this.maxHp);
+        console.log("new rat " + ratio);
+		this.fill.style.width = `${ratio}%`;
+		this.view.classList.add('damage');
+
+		setTimeout(() => container.classList.remove("damage"), 150);
+		// text.textContent = `${current} / ${max}`;
+
+		// Color shift at low HP
+		if (ratio < 0.3) {
+			this.fill.style.background = "#e74c3c";
+		} else if (ratio < 0.6) {
+			this.fill.style.background = "#f1c40f";
+		} else {
+			this.fill.style.background = "linear-gradient(to right, #3adb76, #1fa84f)";
+		}
+	}
+}
+
+class Enemy {
+    constructor(temp) {
+        for(var c in temp) {
+            // console.log(k);
+            this[c]=temp[c];
+		}
+		this.hpbar = new HPbar(this.hp);
+        const div = document.createElement("div");
+        div.classList.add("monster");
+        // div.dataset.cardId = this.id;
+
+        const name = document.createElement("span");
+		name.innerText = this.name;
+        this.counterView = document.createElement("span");
+		this.counterView.classList.add("monster-counter");
+        div.append(name, this.counterView, 
+			document.createElement("br"), this.hpbar.createElement());
+
+        div.style.backgroundImage = `url('./assets/mobs/${this.name}.jpeg')`;
+        div.style.backgroundSize = "cover";
+        this.element = div;
     }
+	createElement() { 
+		this.counterView.innerText = this.counter;
+		return this.element; 
+	}
+
+	dealDamage(damage) {
+		this.hpbar.update(this.hp -= damage);
+	}
+
+    act(player) {
+		if (this.counter > 0) return;
+		player.dealDamage(this.atk);
+    }
+
+	reset() {
+		this.counter = this.maxCounter;
+	}
 }
 
 class Card {
@@ -68,18 +147,30 @@ class Card {
             // console.log(k);
             this[k]=temp[k];
         }
-    }
-    
-    asDiv() {
-        const div = document.createElement('div');
-        let modifier = "";
-        div.className = `card ${this.type}`;
-        div.innerHTML = `<b>${this.name}</b><br><small>${this.desc}</small>`;
+        const div = document.createElement("div");
+        div.classList.add("card", this.type);
+        // div.dataset.cardId = this.id;
+
+        const title = document.createElement("b");
+        title.textContent = this.name;
+
+        const cost = document.createElement("b");
+        cost.textContent = this.cost;
+
+        const desc = document.createElement("small");
+        desc.textContent = this.desc;
+
+        div.append(title, cost, document.createElement("br"), desc);
+
         div.style.backgroundImage = `url('./assets/cards/${this.name}.jpeg')`;
         div.style.backgroundSize = "cover";
-
-        return div;
+        this.element = div;
     }
+
+    createElement() {
+      return this.element;
+    }
+    
 }
 
 // --- 3. Deck Building Logic ---
@@ -89,13 +180,13 @@ function initSetup() {
     CARD_LIBRARY.forEach(cardTemp => {
         let prev = document.getElementById('deck-preview');
         let card = new Card(cardTemp);
-        let cdiv = card.asDiv();
+        let cdiv = card.createElement();
         cdiv.onclick = () => {
             if (deck.length == MAX_SIZE) return ;
             let inst = new Card(card);
             deck.push(inst); 
             document.getElementById('count').innerText = deck.length;
-            prev.appendChild(inst.asDiv());
+            prev.appendChild(inst.createElement());
             if (deck.length == MAX_SIZE) {
                 document.getElementById('start-btn').style.display = 'block';
             }
@@ -105,19 +196,22 @@ function initSetup() {
         libZone.appendChild(cdiv);
             // console.log("adding a card...");
         });
-/*
-        const div = document.createElement('div');
-        div.className = `card ${card.type}`;
-        div.innerHTML = `<b>${card.name}</b><small>${card.desc}</small><span>Cost: ${card.cost}</span>`;
-        div.onclick = () => {
-            if (selectedDeck.length < 15) {
-                selectedDeck.push(card.id);
-                document.getElementById('count').innerText = selectedDeck.length;
-                if (selectedDeck.length === 15) document.getElementById('start-btn').style.display = 'block';
-            }
-        };
-        libZone.appendChild(div);
-*/
+}
+
+class Player {
+	constructor(hp, ap) {
+        console.log("added hp bar??");
+		this.hp = hp;
+		this.maxHp = hp;
+		this.ap = ap;
+		this.maxAp = ap;
+		this.hpbar = new HPbar(hp);
+		const stat = document.getElementById("stat-bar")
+        stat.append(this.hpbar.createElement());
+	}
+	dealDamage(dmg) {
+		this.hpbar.update(this.hp -= dmg);
+	}
 }
 
 // --- 4. Core Game Engine ---
@@ -125,11 +219,12 @@ class CardGame {
     constructor(deck) {
         this.mZone = document.getElementById('monster-zone');
         this.pendingCard = null;
-        this.player = { hp: 50, ap: 3, maxAp: 3 };
+        console.log("added player??");
+        this.player = new Player(50, 3);
         this.deck = deck;
         this.hand = [];
         this.tomb = [];
-        this.enemies = MONSTERS.map(m => ({ ...m }));
+        this.enemies = ENEMIES.map(m => new Enemy(m));
         this.shuffle();
         this.startTurn();
 		this.selectedCardIndex = null; // Track the card being held
@@ -157,7 +252,7 @@ class CardGame {
 
 
 	playCard(target = null) {
-        // const card = this.hand[cardIndex];
+        // const card = this.hand[cardIndex]
         
         var card = this.pendingCard;
         
@@ -168,9 +263,9 @@ class CardGame {
         // Execute Attack
         if (card.type === 'attack') {
             if (card.area) {
-                this.enemies.forEach(e => e.hp -= card.damage);
+                this.enemies.forEach(e => e.dealDamage(card.damage));
             } else if (target !== null) {
-                target.hp -= card.damage;
+                target.dealDamage(card.damage);
             } 
         } else {
             if (card.effect === 'gainAP') this.player.ap += card.value;
@@ -190,22 +285,14 @@ class CardGame {
     }
 
     processMoves() {
-        this.enemies.forEach(e => {
-            e.counter--;
-            if (e.counter <= 0) this.enemyAct(e);
-        });
+		this.enemies.forEach(e => e.act(this.player));
         this.checkState();
-    }
-
-    enemyAct(e) {
-        this.log(`${e.name} attacks for ${e.atk}!`);
-        this.player.hp -= e.atk;
-        e.counter = e.maxCounter;
     }
 
     startTurn() {
         this.player.ap = this.player.maxAp;
         this.draw(5);
+		this.enemies.forEach(e => e.reset());
         this.render();
     }
 
@@ -217,52 +304,44 @@ class CardGame {
 	// --- 5. UI Rendering ---
 	render() {
 		// Stats
-		document.getElementById('player-hp').innerText = this.player.hp;
-		document.getElementById('player-ap').innerText = this.player.ap;
+		// document.getElementById('player-hp').innerText = this.player.hp;
+		// document.getElementById('player-ap').innerText = this.player.ap;
 		document.getElementById('pile-counts').innerText = `Deck: ${this.deck.length} | Tomb: ${this.tomb.length}`;
 
 		// Enemies
-		this.mZone.innerHTML = "";
-		this.enemies.forEach((enemy, enemyIndex) => {
-            const div = document.createElement('div');
-            div.className = `monster ${this.selectedCardIndex !== null ? 'targetable' : ''}`;
-            div.innerHTML = `<img src="${enemy.img}"><b>${enemy.name}</b><br>HP: ${enemy.hp}`;
-            
-            div.ondrop = (e) => {
-                e.preventDefault();
-                this.playCard(enemy);
-            };
+		this.mZone.replaceChildren(...this.enemies.map(
+			enemy => {
+					const div = enemy.createElement();
+					
+					div.ondrop = (e) => {
+						e.preventDefault();
+						this.playCard(enemy);
+					};
 
-            div.ondragover = (e) => {
-                console.log("onDrag over ${enemy.name}");
-                e.preventDefault();
-            };
-            this.mZone.appendChild(div);
-        });
-        /*
-        this.mZone.ondrop = (e) => {
-            e.preventDefault();
-            this.playCard();
-        };
-
-        this.mZone.ondragover = (e) => {
-            console.log("onDrag over");
-            e.preventDefault();
-        };
-        */
+					div.ondragover = (e) => {
+						console.log("onDrag over ${enemy.name}");
+						e.preventDefault();
+					};
+					return (div);
+				}));
 		// Hand
 		const hZone = document.getElementById('hand-zone');
-		hZone.innerHTML = "";
-		this.hand.forEach(card => {
-            let cardDiv = card.asDiv();
-            cardDiv.draggable = "true";
-            cardDiv.ondragstart = (e) => {
-                console.log(`startDrag ${e.target.id}`);
-                this.pendingCard = card;
-                cardDiv.className += " selected";
-            };
-            hZone.appendChild(cardDiv);
-        });
+		hZone.replaceChildren(...this.hand.map(
+            card => {
+                let cardDiv = card.createElement();
+                cardDiv.draggable = "true";
+                cardDiv.ondragstart = (e) => {
+                    console.log(`startDrag ${e.target.id}`);
+                    this.pendingCard = card;
+                    cardDiv.classList.remove("selected");
+                };
+                cardDiv.ondragend = (e) => {
+                    console.log(`endDrag ${e.target.id}`);
+                    this.pendingCard = null;
+                    cardDiv.classList.remove("selected");
+                };
+                return cardDiv;
+            }));
 	}
 }
 
@@ -284,5 +363,7 @@ function handleEndTurn() {
 }
 let deck = [
 ];
+
+for (i = 0; i < 14; ++i) deck.push(new Card(CARD_LIBRARY[Math.floor(Math.random() * CARD_LIBRARY.length)]));
 
 initSetup();
