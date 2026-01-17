@@ -6,102 +6,133 @@
     <style>
         body { font-family: sans-serif; background: #222; color: #fff; display: flex; flex-direction: column; align-items: center; }
         #game-container { width: 800px; background: #333; padding: 20px; border-radius: 10px; margin-top: 20px; }
-        
-        .zone { border: 1px solid #555; padding: 10px; margin: 10px 0; border-radius: 5px; min-height: 100px; }
+
+        .zone { border: 1px solid #555; padding: 10px; margin: 10px 0; border-radius: 5px; min-height: 300px; }
+        .handcards { position: relative; padding-top: 200px; padding-bottom: 100px; left: 50%; min-height: 5px;}
         .flex { display: flex; gap: 10px; flex-wrap: wrap; }
-        
-        .card { 
-            width: 120px; height: 160px; background: #444; border: 2px solid #666; 
+
+        .card {
+            width: 120px; height: 160px; background: #444; border: 2px solid #666;
             border-radius: 8px; padding: 10px; cursor: pointer; transition: transform 0.2s;
             display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .card.hand {
+              position: absolute;
+              transform-origin: center bottom;
+
+              --i: 0;
+              --spread: 12deg;
+              --radius: 160px;
+              transform:
+                translateX(-50%)
+                rotate(calc(var(--i) * var(--spread)))
+                translateY(calc(-1 * var(--radius)));
+
+              transition: transform 0.25s ease;
+        }
+        .card.hand:hover {
+              border-color: #00ffcc;
+              position: absolute;
+              transform-origin: center bottom;
+
+              --i: 0;
+              --spread: 12deg;
+              --radius: 160px;
+              transform:
+                translateX(-50%)
+                translateY(-20px)
+                rotate(calc(var(--i) * var(--spread)))
+                translateY(calc(-1 * var(--radius)));
+
+              transition: transform 0.25s ease;
         }
         .card:hover { transform: translateY(-10px); border-color: #00ffcc; }
         .card.attack { border-left: 5px solid #ff4444; }
         .card.skill { border-left: 5px solid #44aaff; }
-        
-		.monster-counter {padding: 20px; left:80%}
+
+        .monster-counter {padding: 20px; left:80%}
         .monster { background: #522; padding: 10px; border-radius: 5px; text-align: center; min-width: 120px; }
         .stat-bar { font-size: 1.2em; font-weight: bold; color: #00ffcc; margin: 10px 0; }
-        
+
         button.end-turn { background: #ff8800; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; border-radius: 5px; }
         .hidden { display: none; }
         #log { font-size: 0.9em; color: #aaa; height: 60px; overflow-y: auto; border-top: 1px solid #555; padding-top: 10px; }
 
 
-		/* Highlight the card the player just clicked */
-		.card.selected {
-			border: 3px solid #ffff00 !important;
-			transform: translateY(-20px);
-			box-shadow: 0 0 15px #ffff00;
-		}
+        /* Highlight the card the player just clicked */
+        .card.selected {
+            border: 3px solid #ffff00 !important;
+            transform: translateY(-20px);
+            box-shadow: 0 0 15px #ffff00;
+        }
 
-		/* Make monsters pulse when a card is selected */
-		.monster.targetable {
-			cursor: crosshair;
-			border: 2px dashed #ff4444;
-			animation: pulse 1.5s infinite;
-		}
+        /* Make monsters pulse when a card is selected */
+        .monster.targetable {
+            cursor: crosshair;
+            border: 2px dashed #ff4444;
+            animation: pulse 1.5s infinite;
+        }
 
-		@keyframes pulse {
-			0% { opacity: 1; }
-			50% { opacity: 0.7; }
-			100% { opacity: 1; }
-		}
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
 
-		.hp-container {
-		  position: relative;
-		  width: 120px;
-		  font-family: sans-serif;
-		  user-select: none;
-		}
+        .hp-container {
+          position: relative;
+          width: 120px;
+          font-family: sans-serif;
+          user-select: none;
+        }
 
-		.hp-bar {
-		  position: absolute;
-			
-		  inset: 0;
-		  width: 100%;
-		  height: 12px;
-		  background: #333;
-		  border-radius: 6px;
-		  overflow: hidden;
-		  border: 1px solid #555;
-		}
+        .hp-bar {
+          position: absolute;
 
-		.hp-fill {
-		  height: 100%;
-		  width: 100%;
-		  background: linear-gradient(
-			to right,
-			#3adb76,
-			#1fa84f
-		  );
-		  transition: width 0.3s ease, background-color 0.3s ease;
-		}
+          inset: 0;
+          width: 100%;
+          height: 12px;
+          background: #333;
+          border-radius: 6px;
+          overflow: hidden;
+          border: 1px solid #555;
+        }
 
-		.hp-text {
+        .hp-fill {
+          height: 100%;
+          width: 100%;
+          background: linear-gradient(
+            to right,
+            #3adb76,
+            #1fa84f
+          );
+          transition: width 0.3s ease, background-color 0.3s ease;
+        }
 
-		  position: absolute;
-		  left: 40%;
-		  align-items: center;
-		  justify-content: center;
-		  font-size: 11px;
-		  font-weight: bold;
-		  color: #fff;
-		  text-shadow: 0 0 2px #000;
-		  pointer-events: none; /* IMPORTANT for drag/drop */
-		}
+        .hp-text {
 
-		.hp-container.damage {
-		  animation: hp-shake 0.15s;
-		}
+          position: absolute;
+          left: 40%;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: bold;
+          color: #fff;
+          text-shadow: 0 0 2px #000;
+          pointer-events: none; /* IMPORTANT for drag/drop */
+        }
 
-		@keyframes hp-shake {
-		  0% { transform: translateX(0); }
-		  25% { transform: translateX(-2px); }
-		  50% { transform: translateX(2px); }
-		  75% { transform: translateX(-2px); }
-		  100% { transform: translateX(0); }
-		}
+        .hp-container.damage {
+          animation: hp-shake 0.15s;
+        }
+
+        @keyframes hp-shake {
+          0% { transform: translateX(0); }
+          25% { transform: translateX(-2px); }
+          50% { transform: translateX(2px); }
+          75% { transform: translateX(-2px); }
+          100% { transform: translateX(0); }
+        }
     </style>
 </head>
 <body>
@@ -119,15 +150,15 @@
     <div id="game-container" class="hidden">
 
         <div id="monster-zone" class="flex zone"></div>
-        
-        <div id="stat-bar" class="stat-bar">
-        </div>
 
-        <div id="hand-zone" class="flex zone"></div>
+
+        <div id="hand-zone" class="handcards"></div>
 
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div id="pile-counts">Deck: 0 | Tomb: 0</div>
-            <button class="end-turn" onclick="handleEndTurn()">END TURN</button>
+            <div id="stat-bar" class="stat-bar">
+            </div>
+            <button class="end-turn" onclick="game.handleEndTurn()">END TURN</button>
         </div>
 
         <div id="log">Welcome to the dungeon...</div>

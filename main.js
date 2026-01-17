@@ -1,49 +1,49 @@
 
 // --- 1. Data Configuration ---
 const CARD_LIBRARY = [
-    { 
-		id: 0, 
-		name: "Slash", 
-		type: "attack", 
-		cost: 1, 
-		damage: 6, 
-		desc: "6 DMG",
-	},
     {
-		id: 1,
-		name: "Big Smash",
-		type: "attack",
-		cost: 2,
-		damage: 14,
-		desc: "14 DMG" 
-	},
-    { 
-		id: 2,
-		name: "Cleave",
-		type: "attack",
-		cost: 2,
-		damage: 5,
-		area: true,
-		desc: "5 AOE DMG" },
+        id: 0,
+        name: "Slash",
+        type: "attack",
+        cost: 1,
+        damage: 6,
+        desc: "6 DMG",
+    },
+    {
+        id: 1,
+        name: "Big Smash",
+        type: "attack",
+        cost: 2,
+        damage: 14,
+        desc: "14 DMG"
+    },
+    {
+        id: 2,
+        name: "Cleave",
+        type: "attack",
+        cost: 2,
+        damage: 5,
+        area: true,
+        desc: "5 AOE DMG" },
 
-    { 
-		id: 3,
-		name: "Focus",
-		type: "skill",
-		cost: 0,
-		effect: "gainAP",
-		value: 1,
-		desc: "+1 AP"
-	},
-    { 
-		id: 4,
-		name: "Meditate",
-		type: "skill",
-		cost: 1,
-		effect: "draw",
-		value: 2,
-		desc: "Draw 2" 
-	}
+    {
+        id: 3,
+        name: "Focus",
+        type: "skill",
+        cost: 0,
+        effect: "gainAP",
+        value: 1,
+        desc: "+1 AP"
+    },
+    {
+        id: 4,
+        name: "Meditate",
+        type: "skill",
+        cost: 1,
+        effect: "draw",
+        value: 2,
+        desc: "Draw 2"
+    }
 ];
 
 const ENEMIES = [
@@ -59,45 +59,48 @@ let MAX_SIZE = document.getElementById('max_cards').innerHTML;
 
 class HPbar {
     constructor(maxHp) {
-		this.view = null;
-		this.maxHp = maxHp;
+        this.view = null;
+        this.maxHp = maxHp;
         this.view = document.createElement("div");
         this.view.classList.add("hp-container");
         const hpbar = document.createElement("div");
         hpbar.classList.add("hp-bar");
         this.fill = document.createElement("div");
         this.fill.classList.add("hp-fill");
-		this.text = document.createElement("div");
+        this.text = document.createElement("div");
         this.text.classList.add("hp-text");
-		this.text.innerText = `${maxHp}/${maxHp}`;
-		hpbar.replaceChildren(this.fill);
-		this.view.append(hpbar, this.text);
-	}
+        this.text.innerText = `${maxHp}/${maxHp}`;
+        hpbar.replaceChildren(this.fill);
+        this.view.append(hpbar, this.text);
+    }
     createElement() {
-		return this.view;
-	}
-	update(current) {
-		current = Math.max(0, Math.min(this.maxHp, current));
-		if (this.view === null) return ;
-		// const text = this.view.querySelector(".hp-text");
+        return this.view;
+    }
+    update(current, damaged) {
+        current = Math.max(0, Math.min(this.maxHp, current));
+        const ele = this.view;
+        if (ele === null) return ;
+        // const text = this.view.querySelector(".hp-text");
 
-		const ratio = Math.max(0, current * 100/ this.maxHp);
+        const ratio = Math.max(0, current * 100/ this.maxHp);
         console.log("new rat " + ratio);
-		this.fill.style.width = `${ratio}%`;
-		this.view.classList.add('damage');
+        this.fill.style.width = `${ratio}%`;
+        this.text.innerText = `${current}/${this.maxHp}`;
+        console.log( `${current}/${this.maxHp}`);
+        if (damaged == true) {
+            ele.classList.add('damage');
+            setTimeout(() => ele.classList.remove("damage"), 150);
+        }
 
-		setTimeout(() => container.classList.remove("damage"), 150);
-		// text.textContent = `${current} / ${max}`;
-
-		// Color shift at low HP
-		if (ratio < 0.3) {
-			this.fill.style.background = "#e74c3c";
-		} else if (ratio < 0.6) {
-			this.fill.style.background = "#f1c40f";
-		} else {
-			this.fill.style.background = "linear-gradient(to right, #3adb76, #1fa84f)";
-		}
-	}
+        // Color shift at low HP
+        if (ratio < 30) {
+            this.fill.style.background = "#e74c3c";
+        } else if (ratio < 60) {
+            this.fill.style.background = "#f1c40f";
+        } else {
+            this.fill.style.background = "linear-gradient(to right, #3adb76, #1fa84f)";
+        }
+    }
 }
 
 class Enemy {
@@ -105,40 +108,45 @@ class Enemy {
         for(var c in temp) {
             // console.log(k);
             this[c]=temp[c];
-		}
-		this.hpbar = new HPbar(this.hp);
+        }
+        this.hpbar = new HPbar(this.hp);
         const div = document.createElement("div");
         div.classList.add("monster");
         // div.dataset.cardId = this.id;
 
         const name = document.createElement("span");
-		name.innerText = this.name;
+        name.innerText = this.name;
         this.counterView = document.createElement("span");
-		this.counterView.classList.add("monster-counter");
-        div.append(name, this.counterView, 
-			document.createElement("br"), this.hpbar.createElement());
+        this.counterView.classList.add("monster-counter");
+        div.append(name, this.counterView,
+            document.createElement("br"), this.hpbar.createElement());
 
         div.style.backgroundImage = `url('./assets/mobs/${this.name}.jpeg')`;
         div.style.backgroundSize = "cover";
         this.element = div;
     }
-	createElement() { 
-		this.counterView.innerText = this.counter;
-		return this.element; 
-	}
-
-	dealDamage(damage) {
-		this.hpbar.update(this.hp -= damage);
-	}
-
-    act(player) {
-		if (this.counter > 0) return;
-		player.dealDamage(this.atk);
+    createElement() {
+        this.counterView.innerText = (this.counter > 0)? this.counter: '-';
+        return this.element;
     }
 
-	reset() {
-		this.counter = this.maxCounter;
-	}
+    dealDamage(damage) {
+        this.hpbar.update(this.hp -= damage, damage > 0);
+    }
+
+    act(player) {
+        if (--this.counter == 0)
+            player.dealDamage(this.atk);
+    }
+
+    eof(player) {
+        if (this.counter > 0)
+            player.dealDamage(this.atk);
+    }
+
+    reset() {
+        this.counter = this.maxCounter;
+    }
 }
 
 class Card {
@@ -168,9 +176,10 @@ class Card {
     }
 
     createElement() {
-      return this.element;
+        const div = this.element.cloneNode(true);
+        return div;
     }
-    
+
 }
 
 // --- 3. Deck Building Logic ---
@@ -184,13 +193,13 @@ function initSetup() {
         cdiv.onclick = () => {
             if (deck.length == MAX_SIZE) return ;
             let inst = new Card(card);
-            deck.push(inst); 
+            deck.push(inst);
             document.getElementById('count').innerText = deck.length;
             prev.appendChild(inst.createElement());
             if (deck.length == MAX_SIZE) {
                 document.getElementById('start-btn').style.display = 'block';
             }
-            
+
         }; // onclick
         // cardLibs.appendChild(card);
         libZone.appendChild(cdiv);
@@ -199,19 +208,19 @@ function initSetup() {
 }
 
 class Player {
-	constructor(hp, ap) {
+    constructor(hp, ap) {
         console.log("added hp bar??");
-		this.hp = hp;
-		this.maxHp = hp;
-		this.ap = ap;
-		this.maxAp = ap;
-		this.hpbar = new HPbar(hp);
-		const stat = document.getElementById("stat-bar")
+        this.hp = hp;
+        this.maxHp = hp;
+        this.ap = ap;
+        this.maxAp = ap;
+        this.hpbar = new HPbar(hp);
+        const stat = document.getElementById("stat-bar")
         stat.append(this.hpbar.createElement());
-	}
-	dealDamage(dmg) {
-		this.hpbar.update(this.hp -= dmg);
-	}
+    }
+    dealDamage(dmg) {
+        this.hpbar.update(this.hp -= dmg, dmg > 0);
+    }
 }
 
 // --- 4. Core Game Engine ---
@@ -227,7 +236,6 @@ class CardGame {
         this.enemies = ENEMIES.map(m => new Enemy(m));
         this.shuffle();
         this.startTurn();
-		this.selectedCardIndex = null; // Track the card being held
     }
 
     shuffle() { this.deck.sort(() => Math.random() - 0.5); }
@@ -251,11 +259,11 @@ class CardGame {
     }
 
 
-	playCard(target = null) {
+    playCard(target = null) {
         // const card = this.hand[cardIndex]
-        
+
         var card = this.pendingCard;
-        
+
         console.log(`playing ${card.name}`);
         // Basic checks
         if (this.player.ap < card.cost) return;
@@ -266,7 +274,7 @@ class CardGame {
                 this.enemies.forEach(e => e.dealDamage(card.damage));
             } else if (target !== null) {
                 target.dealDamage(card.damage);
-            } 
+            }
         } else {
             if (card.effect === 'gainAP') this.player.ap += card.value;
             if (card.effect === 'draw') this.draw(card.value);
@@ -274,25 +282,21 @@ class CardGame {
 
         // Cleanup
         this.player.ap -= card.cost;
-        this.hand.forEach((c, i) => {
-            if (c == card) 
-                this.hand.splice(i, 1);
-        })
+        this.hand = this.hand.filter(c => (c != card));
         this.tomb.push(card);
-        this.selectedCardIndex = null; // Reset selection
         this.processMoves();
         this.render();
     }
 
     processMoves() {
-		this.enemies.forEach(e => e.act(this.player));
+        this.enemies.forEach(e => e.act(this.player));
         this.checkState();
     }
 
     startTurn() {
         this.player.ap = this.player.maxAp;
         this.draw(5);
-		this.enemies.forEach(e => e.reset());
+        this.enemies.forEach(e => e.reset());
         this.render();
     }
 
@@ -301,50 +305,62 @@ class CardGame {
         if (this.enemies.length === 0) alert("Victory!");
         if (this.player.hp <= 0) alert("Game Over!");
     }
-	// --- 5. UI Rendering ---
-	render() {
-		// Stats
-		// document.getElementById('player-hp').innerText = this.player.hp;
-		// document.getElementById('player-ap').innerText = this.player.ap;
-		document.getElementById('pile-counts').innerText = `Deck: ${this.deck.length} | Tomb: ${this.tomb.length}`;
+    // --- 5. UI Rendering ---
+    render() {
+        // Stats
+        // document.getElementById('player-hp').innerText = this.player.hp;
+        // document.getElementById('player-ap').innerText = this.player.ap;
+        document.getElementById('pile-counts').innerText = `Deck: ${this.deck.length} | Tomb: ${this.tomb.length}`;
 
-		// Enemies
-		this.mZone.replaceChildren(...this.enemies.map(
-			enemy => {
-					const div = enemy.createElement();
-					
-					div.ondrop = (e) => {
-						e.preventDefault();
-						this.playCard(enemy);
-					};
+        // Enemies
+        this.mZone.replaceChildren(...this.enemies.map(
+            enemy => {
+                    const div = enemy.createElement();
 
-					div.ondragover = (e) => {
-						console.log("onDrag over ${enemy.name}");
-						e.preventDefault();
-					};
-					return (div);
-				}));
-		// Hand
-		const hZone = document.getElementById('hand-zone');
-		hZone.replaceChildren(...this.hand.map(
+                    div.ondrop = (e) => {
+                        e.preventDefault();
+                        this.playCard(enemy);
+                    };
+
+                    div.ondragover = (e) => {
+                        console.log("onDrag over ${enemy.name}");
+                        e.preventDefault();
+                    };
+                    return (div);
+                }));
+        // Hand
+        const hZone = document.getElementById('hand-zone');
+        const count = this.hand.length;
+        var i = 0;
+        hZone.replaceChildren(...this.hand.map(
             card => {
-                let cardDiv = card.createElement();
-                cardDiv.draggable = "true";
-                cardDiv.ondragstart = (e) => {
+                const div = card.createElement();
+                div.className += " hand";
+                div.style.setProperty("--i", i++ - ((count - 1) / 2));
+                div.style.setProperty("--spread", `${Math.min(14, 60 / count)}deg`);
+                div.style.setProperty("--radius", `${140 + count * 6}px`);
+                div.draggable = "true";
+                div.ondragstart = (e) => {
                     console.log(`startDrag ${e.target.id}`);
                     this.pendingCard = card;
-                    cardDiv.classList.remove("selected");
+                    div.classList.remove("selected");
                 };
-                cardDiv.ondragend = (e) => {
+                div.ondragend = (e) => {
                     console.log(`endDrag ${e.target.id}`);
                     this.pendingCard = null;
-                    cardDiv.classList.remove("selected");
+                    div.classList.remove("selected");
                 };
-                return cardDiv;
+                return div;
             }));
-	}
+    }
+    handleEndTurn() {
+        // Monsters that didn't act yet act now
+        this.enemies.forEach(e => e.eof(this.player));
+        this.tomb.push(...this.hand);
+        this.hand = [];
+        this.startTurn();
+    }
 }
-
 
 function startGame() {
     document.getElementById('setup-screen').classList.add('hidden');
@@ -352,15 +368,6 @@ function startGame() {
     game = new CardGame(deck);
 }
 
-function handleEndTurn() {
-    // Monsters that didn't act yet act now
-    game.enemies.forEach(e => {
-        if (e.counter > 0) game.enemyAct(e);
-    });
-    game.tomb.push(...game.hand);
-    game.hand = [];
-    game.startTurn();
-}
 let deck = [
 ];
 
