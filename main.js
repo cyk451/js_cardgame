@@ -8,6 +8,7 @@ const CARD_LIBRARY = [
         cost: 1,
         damage: 6,
         desc: "6 DMG",
+        requireTarget: true,
     },
     {
         id: 1,
@@ -15,7 +16,8 @@ const CARD_LIBRARY = [
         type: "attack",
         cost: 2,
         damage: 14,
-        desc: "14 DMG"
+        desc: "14 DMG",
+        requireTarget: true,
     },
     {
         id: 2,
@@ -24,7 +26,9 @@ const CARD_LIBRARY = [
         cost: 2,
         damage: 5,
         area: true,
-        desc: "5 AOE DMG" },
+        desc: "5 AOE DMG",
+        requireTarget: false,
+    },
 
     {
         id: 3,
@@ -33,7 +37,8 @@ const CARD_LIBRARY = [
         cost: 0,
         effect: "gainAP",
         value: 1,
-        desc: "+1 AP"
+        desc: "+1 AP",
+        requireTarget: false,
     },
     {
         id: 4,
@@ -42,7 +47,8 @@ const CARD_LIBRARY = [
         cost: 1,
         effect: "draw",
         value: 2,
-        desc: "Draw 2"
+        desc: "Draw 2",
+        requireTarget: false,
     }
 ];
 
@@ -119,7 +125,7 @@ class Enemy {
         this.counterView = document.createElement("span");
         this.counterView.classList.add("monster-counter");
         div.append(name, this.counterView,
-            document.createElement("br"), this.hpbar.createElement());
+        document.createElement("br"), this.hpbar.createElement());
 
         div.style.backgroundImage = `url('./assets/mobs/${this.name}.jpeg')`;
         div.style.backgroundSize = "cover";
@@ -146,6 +152,22 @@ class Enemy {
 
     reset() {
         this.counter = this.maxCounter;
+    }
+
+    setTargetable(targetable, card) {
+        const div = this.element;
+        div.ondrop = targetable? (e) => {
+            e.preventDefault();
+            game.playCard(card, {
+                "x": e.clientX,
+                "y": e.clientY,
+            }, this);
+        }: null;
+
+        div.ondragover = targetable? (e) => {
+            console.log("onDrag over ${enemy.name}");
+            e.preventDefault();
+        }: null;
     }
 }
 
@@ -176,8 +198,42 @@ class Card {
     }
 
     createElement() {
-        const div = this.element.cloneNode(true);
-        return div;
+        // return this.element;
+        this.div = this.element.cloneNode(true);
+        return this.div;
+    }
+    // this function is async
+    flyTo(from, end, onfinish = null) {
+        const clone = this.createElement();
+
+        clone.style.position = "fixed";
+        clone.style.left = `${from.left}px`;
+        clone.style.top = `${from.top}px`;
+        clone.style.width = from.width;
+        clone.style.height = from.height;
+        clone.style.margin = "0";
+        clone.style.pointerEvents = "none";
+        clone.style.zIndex = "9999";
+        clone.classList.add("flying-card");
+
+        document.body.appendChild(clone);
+
+        const dx = end.left + end.width / 2 - (from.left + from.width / 2);
+        const dy = end.top + end.height / 2 - (from.top + from.height / 2);
+
+        requestAnimationFrame(() => {
+            console.log("updateFrame");
+            clone.style.transform = `
+              translate(${dx}px, ${dy}px)
+            `;
+            clone.style.opacity = "0.8";
+            });
+
+        clone.addEventListener("transitionend", () => {
+            console.log("removed");
+            clone.remove();
+            if (onfinish !== null) onfinish();
+            }, { once: true });
     }
 
 }
@@ -209,14 +265,29 @@ function initSetup() {
 
 class Player {
     constructor(hp, ap) {
-        console.log("added hp bar??");
         this.hp = hp;
         this.maxHp = hp;
         this.ap = ap;
         this.maxAp = ap;
         this.hpbar = new HPbar(hp);
-        const stat = document.getElementById("stat-bar")
-        stat.append(this.hpbar.createElement());
+        const stat = document.getElementById("stat-bar");
+        const div = this.hpbar.createElement();
+        div.classList.add("player");
+        this.apbar = document.createElement("div");
+        this.updateAp();
+        stat.append(div, document.createElement('br'), this.apbar);
+    }
+    updateAp() {
+        var ap_txt = "&nbsp;";
+        var i = 0;
+        for (i = 0; i < 9; ++i) {
+            if (i < this.ap)
+                ap_txt += "&nbsp;⬤&nbsp;";
+            else
+                ap_txt += "&nbsp;〇&nbsp;";
+        }
+        ap_txt += "&nbsp;";
+        this.apbar.innerHTML = ap_txt;
     }
     dealDamage(dmg) {
         this.hpbar.update(this.hp -= dmg, dmg > 0);
@@ -227,6 +298,9 @@ class Player {
 class CardGame {
     constructor(deck) {
         this.mZone = document.getElementById('monster-zone');
+        this.mTomb = document.getElementById('tomb-zone');
+        this.mDeck = document.getElementById('deck-zone');
+        this.mHand = document.getElementById('hand-zone');
         this.pendingCard = null;
         console.log("added player??");
         this.player = new Player(50, 3);
@@ -246,7 +320,8 @@ class CardGame {
     }
 
     draw(count) {
-        for (let i = 0; i < count; i++) {
+
+        for (var idx = 0 ; idx < count; ++idx) {
             if (this.deck.length === 0) {
                 if (this.tomb.length === 0) return;
                 this.deck = [...this.tomb];
@@ -254,15 +329,23 @@ class CardGame {
                 this.shuffle();
                 this.log("Deck reshuffled.");
             }
-            this.hand.push(this.deck.pop());
+
+            const card = this.deck.pop();
+            setTimeout(() =>
+                card.flyTo(this.mDeck.getBoundingClientRect(),
+                    this.mHand.getBoundingClientRect(),
+                    () => {
+                        this.hand.push(card);
+                        this.render();
+                    }), idx * 60);;
         }
     }
 
 
-    playCard(target = null) {
+    playCard(card, uipos, target = null) {
         // const card = this.hand[cardIndex]
 
-        var card = this.pendingCard;
+        // var card = this.pendingCard;
 
         console.log(`playing ${card.name}`);
         // Basic checks
@@ -272,8 +355,13 @@ class CardGame {
         if (card.type === 'attack') {
             if (card.area) {
                 this.enemies.forEach(e => e.dealDamage(card.damage));
-            } else if (target !== null) {
-                target.dealDamage(card.damage);
+            } else {
+                if (target !== null) {
+                    target.dealDamage(card.damage);
+                } else {
+                    console.log(`card need target`);
+                    return ;
+                }
             }
         } else {
             if (card.effect === 'gainAP') this.player.ap += card.value;
@@ -283,9 +371,18 @@ class CardGame {
         // Cleanup
         this.player.ap -= card.cost;
         this.hand = this.hand.filter(c => (c != card));
-        this.tomb.push(card);
-        this.processMoves();
-        this.render();
+        card.flyTo({
+                "left": uipos.x,
+                "top": uipos.y,
+                "width": 145,
+                "height": 184,
+            },
+            this.mTomb.getBoundingClientRect(),
+            () => {
+                this.tomb.push(card);
+                this.processMoves();
+                this.render();
+            });
     }
 
     processMoves() {
@@ -305,59 +402,103 @@ class CardGame {
         if (this.enemies.length === 0) alert("Victory!");
         if (this.player.hp <= 0) alert("Game Over!");
     }
+    setMzoneTargetable(targetable, card) {
+        this.mZone.ondragover = targetable? (e) => {
+            console.log("onDrag over");
+            e.preventDefault();
+        }: null;
+        this.mZone.ondrop = targetable? (e) => {
+            console.log("onDrag over panel");
+            e.preventDefault();
+            this.playCard(card, {
+                "x": e.clientX,
+                "y": e.clientY,
+            });
+        }: null;
+    };
+    targetSelect(card) {
+        this.setMzoneTargetable(!card.requireTarget, card);
+        this.enemies.forEach(e => e.setTargetable(card.requireTarget, card));
+    }
+
     // --- 5. UI Rendering ---
     render() {
         // Stats
         // document.getElementById('player-hp').innerText = this.player.hp;
         // document.getElementById('player-ap').innerText = this.player.ap;
         document.getElementById('pile-counts').innerText = `Deck: ${this.deck.length} | Tomb: ${this.tomb.length}`;
+        this.player.updateAp();
 
         // Enemies
         this.mZone.replaceChildren(...this.enemies.map(
-            enemy => {
-                    const div = enemy.createElement();
+            enemy => enemy.createElement()));
 
-                    div.ondrop = (e) => {
-                        e.preventDefault();
-                        this.playCard(enemy);
-                    };
-
-                    div.ondragover = (e) => {
-                        console.log("onDrag over ${enemy.name}");
-                        e.preventDefault();
-                    };
-                    return (div);
-                }));
-        // Hand
-        const hZone = document.getElementById('hand-zone');
         const count = this.hand.length;
-        var i = 0;
-        hZone.replaceChildren(...this.hand.map(
+        var i =  (count - 1) / -2;
+        const radius = 140 + count * 6;
+        const spread = Math.min(14, 60 / count);
+        this.mHand.replaceChildren(...this.hand.map(
             card => {
                 const div = card.createElement();
-                div.className += " hand";
-                div.style.setProperty("--i", i++ - ((count - 1) / 2));
-                div.style.setProperty("--spread", `${Math.min(14, 60 / count)}deg`);
-                div.style.setProperty("--radius", `${140 + count * 6}px`);
-                div.draggable = "true";
-                div.ondragstart = (e) => {
-                    console.log(`startDrag ${e.target.id}`);
-                    this.pendingCard = card;
-                    div.classList.remove("selected");
-                };
-                div.ondragend = (e) => {
-                    console.log(`endDrag ${e.target.id}`);
-                    this.pendingCard = null;
-                    div.classList.remove("selected");
-                };
+                const canplay = this.player.ap >= card.cost;
+                div.classList.add("hand");
+                div.style.setProperty("--i", i);
+                i += 1.0;
+                div.style.setProperty("--spread", `${spread}deg`);
+                div.style.setProperty("--radius", `${radius}px`);
+                if (canplay) {
+                    div.draggable = "true";
+                    div.ondragstart = (e) => {
+                        console.log(`startDrag ${e.target.id}`);
+                        this.targetSelect(card);
+                        // this.pendingCard = card;
+                        div.classList.add("selected");
+                    };
+                    div.ondragend = (e) => {
+                        console.log(`endDrag ${e.target.id}`);
+                        // this.pendingCard = null;
+                        div.classList.remove("selected");
+                    };
+                } else {
+                    div.classList.add("disabled");
+                }
                 return div;
             }));
+        var i =  this.tomb.length;
+        this.mTomb.replaceChildren(...this.tomb.map(
+            card => {
+                const div = card.createElement();
+                div.classList.add("stacked");
+                div.style.setProperty("--i", --i);
+                // div.style.transform += ` rotate(${(Math.random() - 0.5) * 4}deg)`;
+                return div;
+            }
+            ));
+        var i =  this.deck.length;
+        this.mDeck.replaceChildren(...this.deck.map(
+            card => {
+                const div = document.createElement("div");
+                div.classList.add("card", "back", "stacked");
+                div.style.setProperty("--i", --i);
+                // div.style.transform += ` rotate(${(Math.random() - 0.5) * 4}deg)`;
+                return div;
+            }
+            ));
     }
     handleEndTurn() {
         // Monsters that didn't act yet act now
         this.enemies.forEach(e => e.eof(this.player));
-        this.tomb.push(...this.hand);
-        this.hand = [];
+        for (var idx = 0; idx < this.hand.length; ++idx) {
+            setTimeout(() => {
+                const card = this.hand.pop();
+                card.flyTo(card.div.getBoundingClientRect(),
+                    this.mTomb.getBoundingClientRect(),
+                    () => {
+                        this.tomb.push(card);
+                        this.render();
+                    });
+                }, idx * 60);
+        }
         this.startTurn();
     }
 }
