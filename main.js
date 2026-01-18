@@ -116,6 +116,11 @@ class Enemy {
             this[c]=temp[c];
         }
         this.hpbar = new HPbar(this.hp);
+
+        const hpdiv = this.hpbar.createElement();
+        hpdiv.style.marginLeft = 'auto';
+        hpdiv.style.marginRight = 'auto';
+
         const div = document.createElement("div");
         div.classList.add("monster");
         // div.dataset.cardId = this.id;
@@ -124,11 +129,17 @@ class Enemy {
         name.innerText = this.name;
         this.counterView = document.createElement("span");
         this.counterView.classList.add("monster-counter");
-        div.append(name, this.counterView,
-        document.createElement("br"), this.hpbar.createElement());
 
-        div.style.backgroundImage = `url('./assets/mobs/${this.name}.jpeg')`;
-        div.style.backgroundSize = "cover";
+        var sprite = new Image(180, 240);
+        sprite.src = `./assets/mobs/${this.name}.jpeg`;
+        sprite.setAttribute("loading", "lazy");
+        div.append(name,
+            this.counterView,
+            document.createElement("br"),
+            hpdiv,
+            document.createElement("br"),
+            sprite);
+
         this.element = div;
     }
     createElement() {
@@ -179,18 +190,22 @@ class Card {
         }
         const div = document.createElement("div");
         div.classList.add("card", this.type);
-        // div.dataset.cardId = this.id;
+        const topbar = document.createElement("div");
+        topbar.classList.add("topbar");
 
         const title = document.createElement("b");
         title.textContent = this.name;
 
         const cost = document.createElement("b");
         cost.textContent = this.cost;
+        cost.style.marginLeft = 'auto';
+
+        topbar.append(title, cost);
 
         const desc = document.createElement("small");
         desc.textContent = this.desc;
 
-        div.append(title, cost, document.createElement("br"), desc);
+        div.append(topbar, document.createElement("br"), desc);
 
         div.style.backgroundImage = `url('./assets/cards/${this.name}.jpeg')`;
         div.style.backgroundSize = "cover";
