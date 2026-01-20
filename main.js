@@ -58,10 +58,7 @@ const ENEMIES = [
 ];
 
 // --- 2. Game State ---
-// let selectedDeck = [];
-let game = null;
-// let deck = [];
-let MAX_SIZE = document.getElementById('max_cards').innerHTML;
+let MAX_SIZE = 15;
 
 class HPbar {
     constructor(maxHp) {
@@ -110,7 +107,7 @@ class HPbar {
 }
 
 class Enemy {
-    constructor(temp) {
+    constructor(temp, scene) {
         for(var c in temp) {
             // console.log(k);
             this[c]=temp[c];
@@ -141,6 +138,7 @@ class Enemy {
             sprite);
 
         this.element = div;
+        this.scene = scene;
     }
     createElement() {
         this.counterView.innerText = (this.counter > 0)? this.counter: '-';
@@ -169,7 +167,7 @@ class Enemy {
         const div = this.element;
         div.ondrop = targetable? (e) => {
             e.preventDefault();
-            game.playCard(card, {
+            this.scene.playCard(card, {
                 "x": e.clientX,
                 "y": e.clientY,
             }, this);
@@ -181,6 +179,36 @@ class Enemy {
         }: null;
     }
 }
+    // this function is async
+function flyTo(clone, from, end, onfinish = null) {
+    clone.style.position = "fixed";
+    clone.style.left = `${from.left}px`;
+    clone.style.top = `${from.top}px`;
+    clone.style.margin = "0";
+    clone.style.pointerEvents = "none";
+    clone.style.zIndex = "9999";
+    clone.classList.add("flying-card");
+
+    document.body.appendChild(clone);
+
+    const dx = end.left - (from.left);
+    const dy = end.top - (from.top);
+
+    requestAnimationFrame(() => {
+        console.log("updateFrame");
+        clone.style.transform = `
+          translate(${dx}px, ${dy}px)
+        `;
+        clone.style.opacity = "0.8";
+        });
+
+    clone.addEventListener("transitionend", () => {
+        console.log("removed");
+        clone.remove();
+        if (onfinish !== null) onfinish();
+        }, { once: true });
+}
+
 
 class Card {
     constructor(temp) {
@@ -188,6 +216,7 @@ class Card {
             // console.log(k);
             this[k]=temp[k];
         }
+        /*
         const div = document.createElement("div");
         div.classList.add("card", this.type);
         const topbar = document.createElement("div");
@@ -209,7 +238,15 @@ class Card {
 
         div.style.backgroundImage = `url('./assets/cards/${this.name}.jpeg')`;
         div.style.backgroundSize = "cover";
-        this.element = div;
+        this.element = div; */
+        this.element = el('div', {class: `card ${this.type}`},
+                el('div', {class: "topbar"}, 
+                    el('b', {}, this.name),
+                    el('b', {}, this.cost),
+                ),
+                el('br'),
+                el('small', {}, this.desc),
+            );
     }
 
     createElement() {
@@ -217,68 +254,10 @@ class Card {
         this.div = this.element.cloneNode(true);
         return this.div;
     }
-    // this function is async
-    flyTo(from, end, onfinish = null) {
-        const clone = this.createElement();
-
-        clone.style.position = "fixed";
-        clone.style.left = `${from.left}px`;
-        clone.style.top = `${from.top}px`;
-        clone.style.width = from.width;
-        clone.style.height = from.height;
-        clone.style.margin = "0";
-        clone.style.pointerEvents = "none";
-        clone.style.zIndex = "9999";
-        clone.classList.add("flying-card");
-
-        document.body.appendChild(clone);
-
-        const dx = end.left + end.width / 2 - (from.left + from.width / 2);
-        const dy = end.top + end.height / 2 - (from.top + from.height / 2);
-
-        requestAnimationFrame(() => {
-            console.log("updateFrame");
-            clone.style.transform = `
-              translate(${dx}px, ${dy}px)
-            `;
-            clone.style.opacity = "0.8";
-            });
-
-        clone.addEventListener("transitionend", () => {
-            console.log("removed");
-            clone.remove();
-            if (onfinish !== null) onfinish();
-            }, { once: true });
-    }
-
 }
 
-// --- 3. Deck Building Logic ---
-function initSetup() {
-    const libZone = document.getElementById('library-zone');
-    // let cardLibs = [];
-    CARD_LIBRARY.forEach(cardTemp => {
-        let prev = document.getElementById('deck-preview');
-        let card = new Card(cardTemp);
-        let cdiv = card.createElement();
-        cdiv.onclick = () => {
-            if (deck.length == MAX_SIZE) return ;
-            let inst = new Card(card);
-            deck.push(inst);
-            document.getElementById('count').innerText = deck.length;
-            prev.appendChild(inst.createElement());
-            if (deck.length == MAX_SIZE) {
-                document.getElementById('start-btn').style.display = 'block';
-            }
 
-        }; // onclick
-        // cardLibs.appendChild(card);
-        libZone.appendChild(cdiv);
-            // console.log("adding a card...");
-        });
-}
-
-class Player {
+class CombatPlayer {
     constructor(hp, ap) {
         this.hp = hp;
         this.maxHp = hp;
@@ -308,21 +287,137 @@ class Player {
         this.hpbar.update(this.hp -= dmg, dmg > 0);
     }
 }
+function process(obj, evt) {
+    if (Object.hasOwn(obj, evt.what))
+        obj.what(evt);
+    if (Object.hasOwn("evChildren"))
+        obj.evChildren.forEach(c => process(c, evt));
+}
 
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v;
+    else if (k === "style") Object.assign(node.style, v);
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node[k] = v;
+  }
+
+  for (const child of children) {
+    if (child == null) continue;
+    node.append(child.nodeType ? child : document.createTextNode(child));
+  }
+
+  return node;
+}
+
+class SetupScene {
+    constructor() {
+    }
+    
+    tempToDiv(temp) {
+        const card = new Card(temp);
+        const cdiv = card.createElement();
+        cdiv.onclick = () => {
+                if (this.deck.length == MAX_SIZE) return ;
+                this.deck.push(new Card(temp));
+                this.render();
+            }; // onclick
+        return cdiv;
+    }
+    
+    createElement() {
+        const cardCandidates = [...CARD_LIBRARY.map(c => this.tempToDiv(c))];
+        this.countSpan = el("span", { id: "count", textContent: "0" });
+        const maxSpan = el("span", { id: "max_cards", textContent: "15" });
+        this.prev = el("div", { id: "deck-preview", class: "flex" });
+
+        this.startBtn = el("button", {
+            id: "start-btn",
+            class: "end-turn",
+            style: { marginTop: "20px", display: "none" },
+            }, "Start Game");
+
+        return el("div", {},
+            el("h2", {}, "Build Your Deck (Select cards)"),
+            el("div", { id: "library-zone", class: "flex"}, ...cardCandidates),
+            el("p", {},
+              "Selected: ",
+              this.countSpan,
+              "/",
+              maxSpan
+            ),
+            this.prev,
+            this.startBtn
+        );
+    }
+    
+    enter(d) {
+        this.deck = d.deck;
+        this.startBtn.onclick = () => game.sm.push(scenes.combat, d);
+        for (var i = 0; i < 14; ++i) 
+            this.deck.push(new Card(CARD_LIBRARY[Math.floor(Math.random() * CARD_LIBRARY.length)]));
+        this.render();
+
+    }
+    
+    render() {
+        this.countSpan.innerText = this.deck.length;
+        this.prev.replaceChildren(
+            ...this.deck.map(c => c.createElement()));
+        if (this.deck.length == MAX_SIZE) {
+            this.startBtn.style.display = 'block';
+        }
+    }
+}
 // --- 4. Core Game Engine ---
-class CardGame {
-    constructor(deck) {
-        this.mZone = document.getElementById('monster-zone');
-        this.mTomb = document.getElementById('tomb-zone');
-        this.mDeck = document.getElementById('deck-zone');
-        this.mHand = document.getElementById('hand-zone');
-        this.pendingCard = null;
-        console.log("added player??");
-        this.player = new Player(50, 3);
-        this.deck = deck;
+class CombatScene {
+    constructor(mainscene) {
+        console.log("combat init");
         this.hand = [];
         this.tomb = [];
-        this.enemies = ENEMIES.map(m => new Enemy(m));
+        this.enemies = ENEMIES.map(m => new Enemy(m, this));
+    }
+    createElement() {
+        this.mZone = el("div", {
+              id: "monster-zone",
+              class: "flex zone",
+              style: { alignItems: "right" }
+            });
+        this.mTomb = el("div", { id: "tomb-zone" });
+        this.mDeck = el("div", { id: "deck-zone" });
+        this.mHand = el("div", { id: "hand-zone" });
+        return el("div", { class: "scene combat-scene" },
+            this.mZone,
+            el("div", { class: "flex", style: { 
+                justifyContent: "space-around", width: "100%" } },
+              this.mDeck,
+              this.mHand,
+              this.mTomb
+            ),
+            el("div", { style: {transform: "translateY(-100px)"} },
+                el("div", {
+                  style: {
+                    display: "flex",
+                    justifyContent: "space-around",
+                    alignItems: "center",
+                  }
+                },
+                  el("div", { id: "pile-counts" }, "Deck: 0 | Tomb: 0"),
+                  el("div", { id: "stat-bar", class: "stat-bar" }),
+                  el("button", {
+                    class: "end-turn",
+                    onclick: () => this.handleEndTurn()
+                  }, "END TURN")
+                ),
+                el("div", { id: "log" }, "Welcome to the dungeon...")
+            ));
+    }
+    
+    enter(d) {
+        this.deck = d.deck;
+        this.player = new CombatPlayer(d.player.hp, d.player.ap);
         this.shuffle();
         this.startTurn();
     }
@@ -333,7 +428,7 @@ class CardGame {
         const l = document.getElementById('log');
         l.innerHTML = msg + "<br>" + l.innerHTML;
     }
-
+    
     draw(count) {
 
         for (var idx = 0 ; idx < count; ++idx) {
@@ -347,7 +442,8 @@ class CardGame {
 
             const card = this.deck.pop();
             setTimeout(() =>
-                card.flyTo(this.mDeck.getBoundingClientRect(),
+                flyTo(card.createElement(), 
+                    this.mDeck.getBoundingClientRect(),
                     this.mHand.getBoundingClientRect(),
                     () => {
                         this.hand.push(card);
@@ -386,11 +482,12 @@ class CardGame {
         // Cleanup
         this.player.ap -= card.cost;
         this.hand = this.hand.filter(c => (c != card));
-        card.flyTo({
+        flyTo(card.createElement(),
+            {
                 "left": uipos.x,
                 "top": uipos.y,
-                "width": 145,
-                "height": 184,
+                "width": this.mTomb.style.width,
+                "height": this.mTomb.style.height,
             },
             this.mTomb.getBoundingClientRect(),
             () => {
@@ -414,8 +511,8 @@ class CardGame {
 
     checkState() {
         this.enemies = this.enemies.filter(e => e.hp > 0);
-        if (this.enemies.length === 0) alert("Victory!");
-        if (this.player.hp <= 0) alert("Game Over!");
+        if (this.enemies.length === 0) this.showSummary("Victory!");
+        if (this.player.hp <= 0) this.showSummary("Game Over!");
     }
     setMzoneTargetable(targetable, card) {
         this.mZone.ondragover = targetable? (e) => {
@@ -466,12 +563,10 @@ class CardGame {
                     div.ondragstart = (e) => {
                         console.log(`startDrag ${e.target.id}`);
                         this.targetSelect(card);
-                        // this.pendingCard = card;
                         div.classList.add("selected");
                     };
                     div.ondragend = (e) => {
                         console.log(`endDrag ${e.target.id}`);
-                        // this.pendingCard = null;
                         div.classList.remove("selected");
                     };
                 } else {
@@ -506,7 +601,8 @@ class CardGame {
         for (var idx = 0; idx < this.hand.length; ++idx) {
             setTimeout(() => {
                 const card = this.hand.pop();
-                card.flyTo(card.div.getBoundingClientRect(),
+                flyTo(card.createElement(), 
+                    card.div.getBoundingClientRect(),
                     this.mTomb.getBoundingClientRect(),
                     () => {
                         this.tomb.push(card);
@@ -516,17 +612,40 @@ class CardGame {
         }
         this.startTurn();
     }
+    
+    showSummary(summary) {
+        
+    }
 }
-
-function startGame() {
-    document.getElementById('setup-screen').classList.add('hidden');
-    document.getElementById('game-container').classList.remove('hidden');
-    game = new CardGame(deck);
-}
-
 let deck = [
 ];
 
-for (i = 0; i < 14; ++i) deck.push(new Card(CARD_LIBRARY[Math.floor(Math.random() * CARD_LIBRARY.length)]));
 
-initSetup();
+const scenes = {
+  // choose difficulty
+  // menu: new MapScene(document.getElementById("menu")),
+  // player build initial deck.
+  setup: new SetupScene(),
+  // map: new MapScene(document.getElementById("map")),
+  combat: new CombatScene(),
+  // reward: new RewardScene(document.getElementById("reward")),
+  // store: new RewardScene(document.getElementById("store")),
+  // event: new RewardScene(document.getElementById("event")),
+};
+
+
+class GamePlay {
+    constructor() {
+        this.sm = new SceneManager();
+        this.player = {hp: 50, ap: 3};
+        this.deck = [];
+
+    }
+    // --- 3. Deck Building Logic ---
+    initSetup() {
+        this.sm.push(scenes.setup, this);
+    }
+}
+
+let game = new GamePlay();
+game.initSetup();

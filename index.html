@@ -5,22 +5,31 @@
     <title>Card Crawler JS</title>
     <style>
         body { font-family: sans-serif; background: #222; color: #fff; display: flex; flex-direction: column; align-items: center; }
-        #game-container { width: 800px; background: #333; padding: 20px; border-radius: 10px; margin-top: 20px; }
+        #scene-root {
+          position: relative;
+          width: 1200px;
+          overflow: hidden;
+        }
+        
+        #overlay-root {
+          position: absolute;
+          inset: 0;
+          pointer-events: none; /* important */
+        }
+        #combat { width: 800px; background: #333; padding: 20px; border-radius: 10px; margin-top: 20px; }
+
 
         .zone { border: 1px solid #555; padding: 10px; margin: 10px 0; border-radius: 5px; min-height: 300px; }
         #hand-zone {
-            position: relative;
             padding-top: 200px;
-            width: 100px;
+            width: 400px;
             height: 200px;
-            margin-left: auto;
-            margin-right: auto;
         }
         #tomb-zone {
             margin-top: 50px;
             position: relative;
-            width: 147px;
-            height: 182px;
+            width: 187px;
+            height: 262px;
             background: #222;
             border: 2px solid #600;
             border-radius: 8px;
@@ -28,8 +37,8 @@
         #deck-zone {
             margin-top: 50px;
             position:relative;
-            width: 147px;
-            height: 182px;
+            width: 187px;
+            height: 262px;
             background: #222;
             border: 2px solid #600;
             border-radius: 8px;
@@ -37,17 +46,22 @@
         .card .topbar {
           display: flex;
           align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid #fff;
+          // border-left: 1px solid #222;
+          border-radius: 5px;
         }
 
         .card .topbar b:last-child {
-          margin-left: auto; /* pushes cost to the right */
-        }
-
-        .card .topbar b:last-child {
-            background: #0cf;
-            padding: 2px 6px;
+            background: radial-gradient(
+            #04C,
+            #FFF
+          );
+          color: #FFF;
+          border: 2px solid #FFF;
+            padding: 4px 4px;
             border-radius: 50%;
-            min-width: 18px;
+            min-width: 20px;
             font-size: 18px;
             font-weight: bold;
             text-align: center;
@@ -56,8 +70,16 @@
         .flex { display: flex; gap: 10px; flex-wrap: wrap; }
 
         .card {
-            width: 120px; height: 160px; background: #444; border: 2px solid #666;
-            border-radius: 8px; padding: 10px; cursor: pointer; transition: transform 0.2s;
+            width: 150px; height: 230px; 
+            background: repeating-linear-gradient(
+                to top left,
+                #444,
+                #555 80px,
+                #666 30px,
+                #444 180px
+              ); 
+            border: 2px solid #666;
+            border-radius: 8px; padding: 15px; cursor: pointer; transition: transform 0.2s;
             display: flex; flex-direction: column; justify-content: space-between;
         }
         .card.stacked {
@@ -68,7 +90,13 @@
             transition: transform 0.5s ease;
         }
         .card.back {
-            background: #CCC;
+            background: repeating-linear-gradient(
+                to top left,
+                #AAA,
+                #BBB 80px,
+                #CCC 30px,
+                #AAA 180px
+              );;
             border: 2px solid #666;
             border-left: 5px solid #666;
         }
@@ -220,39 +248,18 @@
           75% { transform: translateX(-2px); }
           100% { transform: translateX(0); }
         }
+
     </style>
 </head>
 <body>
 
     <h1>Card Crawler</h1>
+    <div id="scene-root"></div>
+    <div id="overlay-root"></div>
+    
 
-    <div id="setup-screen">
-        <h2>Build Your Deck (Select cards)</h2>
-        <div id="library-zone" class="flex"></div>
-        <p>Selected: <span id="count">0</span>/<span id="max_cards">15</span></p>
-        <div id="deck-preview" class="flex"></div>
-        <button id="start-btn" class="end-turn" style="margin-top:20px; display:none;" onclick="startGame()">Start Game</button>
-    </div>
-
-    <div id="game-container" class="hidden">
-
-        <div id="monster-zone" class="flex zone" style="align-items:right;"></div>
-
-        <div class="flex" style="width:100%;">
-            <div id="deck-zone"></div>
-            <div id="hand-zone"></div>
-            <div id="tomb-zone"></div>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div id="pile-counts">Deck: 0 | Tomb: 0</div>
-            <div id="stat-bar" class="stat-bar">
-            </div>
-            <button class="end-turn" onclick="game.handleEndTurn()">END TURN</button>
-        </div>
-
-        <div id="log">Welcome to the dungeon...</div>
-    </div>
-
+<script src="./MapScene.js" > </script>
+<script src="./SceneManager.js" > </script>
 <script src="./main.js" > </script>
 </body>
 </html>
