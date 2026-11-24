@@ -313,9 +313,16 @@ function el(tag, props = {}, ...children) {
 }
 
 class SetupScene {
-    constructor() {
-    }
     
+    countSpan = el("span", { id: "count", textContent: "0" });
+    
+    startBtn = el("button", {
+            id: "start-btn",
+            class: "end-turn",
+            style: { marginTop: "20px", display: "none" },
+            }, "Start Game");
+            
+    prev = el("div", { id: "deck-preview", class: "flex y-mandatory" });
     tempToDiv(temp) {
         const card = new Card(temp);
         const cdiv = card.createElement();
@@ -329,24 +336,15 @@ class SetupScene {
     
     createElement() {
         const cardCandidates = [...CARD_LIBRARY.map(c => this.tempToDiv(c))];
-        this.countSpan = el("span", { id: "count", textContent: "0" });
-        const maxSpan = el("span", { id: "max_cards", textContent: "15" });
-        this.prev = el("div", { id: "deck-preview", class: "flex" });
-
-        this.startBtn = el("button", {
-            id: "start-btn",
-            class: "end-turn",
-            style: { marginTop: "20px", display: "none" },
-            }, "Start Game");
 
         return el("div", {},
             el("h2", {}, "Build Your Deck (Select cards)"),
-            el("div", { id: "library-zone", class: "flex"}, ...cardCandidates),
+            el("div", { id: "library-zone", class: "flex y-mandatory"}, ...cardCandidates),
             el("p", {},
               "Selected: ",
               this.countSpan,
               "/",
-              maxSpan
+              el("span", { id: "max_cards", textContent: "15" })
             ),
             this.prev,
             this.startBtn
@@ -371,23 +369,34 @@ class SetupScene {
         }
     }
 }
+class RewardOverlay {
+  createElement() {
+    this.el = document.createElement("div");
+
+    const blocker = document.createElement("div");
+    blocker.className = "input-blocker";
+
+    const panel = document.createElement("div");
+    panel.className = "overlay-panel";
+
+    this.el.append(blocker, panel);
+    return this.el;
+  }
+}
 // --- 4. Core Game Engine ---
 class CombatScene {
-    constructor(mainscene) {
-        console.log("combat init");
-        this.hand = [];
-        this.tomb = [];
-        this.enemies = ENEMIES.map(m => new Enemy(m, this));
-    }
+    hand = [];
+    tomb = [];
+    mTomb = el("div", { id: "tomb-zone" });
+    mDeck = el("div", { id: "deck-zone" });
+    mHand = el("div", { id: "hand-zone" });
+    mZone = el("div", {
+          id: "monster-zone",
+          class: "flex zone",
+          style: { alignItems: "right" }
+        });
     createElement() {
-        this.mZone = el("div", {
-              id: "monster-zone",
-              class: "flex zone",
-              style: { alignItems: "right" }
-            });
-        this.mTomb = el("div", { id: "tomb-zone" });
-        this.mDeck = el("div", { id: "deck-zone" });
-        this.mHand = el("div", { id: "hand-zone" });
+        this.enemies = ENEMIES.map(m => new Enemy(m, this));
         return el("div", { class: "scene combat-scene" },
             this.mZone,
             el("div", { class: "flex", style: { 
@@ -623,14 +632,14 @@ let deck = [
 
 const scenes = {
   // choose difficulty
-  // menu: new MapScene(document.getElementById("menu")),
+  // menu: new MapScene(),
   // player build initial deck.
   setup: new SetupScene(),
-  // map: new MapScene(document.getElementById("map")),
+  map: new MapScene(),
   combat: new CombatScene(),
-  // reward: new RewardScene(document.getElementById("reward")),
-  // store: new RewardScene(document.getElementById("store")),
-  // event: new RewardScene(document.getElementById("event")),
+  // reward: new RewardScene(),
+  // store: new RewardScene(),
+  // event: new RewardScene(),
 };
 
 

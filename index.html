@@ -67,10 +67,11 @@
             text-align: center;
         }
         #stat-bar { font-size: 1.2em; font-weight: bold; color: #00ccff; margin: 10px 0; text-align: center; }
-        .flex { display: flex; gap: 10px; flex-wrap: wrap; }
+        .flex { display: flex; gap: 10px; }
 
         .card {
             width: 150px; height: 230px; 
+            min-width:150px;
             background: repeating-linear-gradient(
                 to top left,
                 #444,
@@ -248,7 +249,9 @@
           75% { transform: translateX(-2px); }
           100% { transform: translateX(0); }
         }
-
+        .y-mandatory {
+            overflow-x:scroll;
+        } 
     </style>
 </head>
 <body>
